@@ -35,10 +35,10 @@ jobs:
 
       - name: package
         run: |
-          ARCHIVE="carrier-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz"
           mkdir -p dist
-          tar czf "dist/$ARCHIVE" -C target/release carrier
-          echo "archive=$ARCHIVE" >> "$GITHUB_ENV"
+          cp target/release/carrier dist/carrier
+          tar czf "dist/carrier-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz" -C target/release carrier
+          echo "archive=carrier-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz" >> "$GITHUB_ENV"
 
       - name: create release
         env:
@@ -46,17 +46,15 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE=""
-          if [[ "${{ github.ref }}" != refs/tags/v* ]]; then
-            PRERELEASE="--prerelease"
-          fi
           if gh release view "$TAG" &>/dev/null; then
             echo "release $TAG already exists — uploading assets"
           else
             gh release create "$TAG" \
               --title "carrier $VERSION" \
               --notes "" \
-              --generate-notes \
-              $PRERELEASE
+              --generate-notes
           fi
-          gh release upload "$TAG" "dist/${{ env.archive }}" --clobber
+          gh release upload "$TAG" \
+            "dist/${{ env.archive }}" \
+            "dist/carrier" \
+            --clobber
