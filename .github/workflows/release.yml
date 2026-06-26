@@ -4,22 +4,9 @@ on:
   push:
     branches: [master]
     tags: [v*]
-  pull_request:
-    branches: [master]
 
 jobs:
-  check:
-    name: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
-
-  release:
-    name: release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [check]
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -27,20 +14,39 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: set version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF_NAME#v}"
+          else
+            VER="0.1.0-${GITHUB_SHA:0:8}"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: inject version
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" Cargo.toml
+
       - run: cargo build --release
 
       - name: package
         run: |
-          ARCHIVE="carrier-${GITHUB_REF_NAME#v}-x86_64-linux.tar.gz"
+          ARCHIVE="carrier-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz"
           mkdir -p dist
           tar czf "dist/$ARCHIVE" -C target/release carrier
           echo "archive=$ARCHIVE" >> "$GITHUB_ENV"
 
-      - name: release
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: carrier-${{ steps.version.outputs.version }}
+          path: dist/${{ env.archive }}
+
+      - name: create release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: carrier ${{ github.ref_name }}
-          body: |
-            See [CHANGELOG](../../CHANGELOG.md) for details.
           files: dist/${{ env.archive }}
           generate_release_notes: true
