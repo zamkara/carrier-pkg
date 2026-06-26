@@ -19,10 +19,13 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VER="${GITHUB_REF_NAME#v}"
+            TAG="$GITHUB_REF_NAME"
           else
             VER="0.1.0-${GITHUB_SHA:0:8}"
+            TAG="ci-${GITHUB_SHA:0:8}"
           fi
           echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: inject version
         run: |
@@ -37,16 +40,23 @@ jobs:
           tar czf "dist/$ARCHIVE" -C target/release carrier
           echo "archive=$ARCHIVE" >> "$GITHUB_ENV"
 
-      - name: upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: carrier-${{ steps.version.outputs.version }}
-          path: dist/${{ env.archive }}
-
       - name: create release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: carrier ${{ github.ref_name }}
-          files: dist/${{ env.archive }}
-          generate_release_notes: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          if [[ "${{ github.ref }}" != refs/tags/v* ]]; then
+            PRERELEASE="--prerelease"
+          fi
+          if gh release view "$TAG" &>/dev/null; then
+            echo "release $TAG already exists — uploading assets"
+          else
+            gh release create "$TAG" \
+              --title "carrier $VERSION" \
+              --notes "" \
+              --generate-notes \
+              $PRERELEASE
+          fi
+          gh release upload "$TAG" "dist/${{ env.archive }}" --clobber
