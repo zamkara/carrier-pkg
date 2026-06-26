@@ -1,0 +1,46 @@
+name: release
+
+on:
+  push:
+    branches: [master]
+    tags: [v*]
+  pull_request:
+    branches: [master]
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo build --release
+
+      - name: package
+        run: |
+          ARCHIVE="carrier-${GITHUB_REF_NAME#v}-x86_64-linux.tar.gz"
+          mkdir -p dist
+          tar czf "dist/$ARCHIVE" -C target/release carrier
+          echo "archive=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: carrier ${{ github.ref_name }}
+          body: |
+            See [CHANGELOG](../../CHANGELOG.md) for details.
+          files: dist/${{ env.archive }}
+          generate_release_notes: true
