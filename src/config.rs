@@ -18,10 +18,11 @@ impl Config {
             ("zypper", "docker.io/opensuse/tumbleweed:latest"),
             ("apk", "docker.io/library/alpine:latest"),
             ("emerge", "docker.io/gentoo/stage3:latest"),
-            ("nix", "docker.io/nixos/nix:latest"),
-            ("nix-env", "docker.io/nixos/nix:latest"),
             ("xbps-install", "ghcr.io/void-linux/void-musl-full:latest"),
-            ("slackpkg", "registry.slackware.nl/slackware/slackware:latest"),
+            (
+                "slackpkg",
+                "registry.slackware.nl/slackware/slackware:latest",
+            ),
             ("opkg", "docker.io/openwrt/rootfs:latest"),
         ]
         .into_iter()
@@ -36,8 +37,6 @@ impl Config {
             ("zypper", "opensuse"),
             ("apk", "alpine"),
             ("emerge", "gentoo"),
-            ("nix", "nixos"),
-            ("nix-env", "nixos"),
             ("xbps-install", "void"),
             ("slackpkg", "slackware"),
             ("opkg", "openwrt"),
