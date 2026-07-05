@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::host_detect::{has_nvidia_gpu, memory_limit_mb};
 use crate::spinner::spin_run;
 use std::ffi::OsStr;
 use std::process::Command;
@@ -48,21 +49,36 @@ fn pull_image(config: &Config) -> bool {
 }
 
 fn create_container(config: &Config) -> bool {
-    let mut args: Vec<&str> = vec![
-        "create",
-        "--image",
-        &config.image,
-        "--name",
-        &config.container_name,
+    let mut args: Vec<String> = vec![
+        "create".into(),
+        "--image".into(),
+        config.image.clone(),
+        "--name".into(),
+        config.container_name.clone(),
     ];
+
+    if has_nvidia_gpu() {
+        args.push("--nvidia".into());
+    }
+
+    let mut flags = Vec::new();
+
+    if let Some(mb) = memory_limit_mb() {
+        flags.push(format!("--memory={}m", mb));
+        flags.push(format!("--memory-swap={}m", mb));
+    }
 
     if config.pm == "apt" || config.pm == "apt-get" {
         let pre_init = "mkdir -p /etc/apt/apt.conf.d && printf 'Dpkg::Use-Pty \"0\";\\n' > /etc/apt/apt.conf.d/99-no-pty";
-        let add_flags = "--env DEBIAN_FRONTEND=noninteractive";
-        args.push("--pre-init-hooks");
-        args.push(pre_init);
-        args.push("--additional-flags");
-        args.push(add_flags);
+        flags.push("--env".into());
+        flags.push("DEBIAN_FRONTEND=noninteractive".into());
+        args.push("--pre-init-hooks".into());
+        args.push(pre_init.into());
+    }
+
+    if !flags.is_empty() {
+        args.push("--additional-flags".into());
+        args.push(flags.join(" "));
     }
 
     let mut create = run_as_user(config, "distrobox", &args);

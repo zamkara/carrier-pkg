@@ -2,6 +2,7 @@ mod config;
 mod container;
 mod export;
 mod file_resolve;
+mod host_detect;
 mod pm_detect;
 mod setup;
 mod spinner;
