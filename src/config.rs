@@ -7,12 +7,31 @@ pub struct Config {
     pub sudo_uid: Option<u32>,
 }
 
+fn is_hardened_kernel() -> bool {
+    std::fs::read_to_string("/proc/version")
+        .map(|v| v.to_lowercase().contains("hardened"))
+        .unwrap_or(false)
+}
+
 impl Config {
     pub fn new(pm: &str) -> Result<Self, String> {
+        let hardened = is_hardened_kernel();
+
+        let pacman_image = if hardened {
+            "docker.io/blackarchlinux/blackarch:latest"
+        } else {
+            "ghcr.io/archlinux/archlinux:latest"
+        };
+        let debian_image = if hardened {
+            "docker.io/parrotsec/core:latest"
+        } else {
+            "docker.io/library/debian:latest"
+        };
+
         let image_map: HashMap<&str, &str> = [
-            ("pacman", "ghcr.io/archlinux/archlinux:latest"),
-            ("apt", "docker.io/library/debian:latest"),
-            ("apt-get", "docker.io/library/debian:latest"),
+            ("pacman", pacman_image),
+            ("apt", debian_image),
+            ("apt-get", debian_image),
             ("dnf", "docker.io/library/fedora:latest"),
             ("yum", "docker.io/library/fedora:latest"),
             ("zypper", "docker.io/opensuse/tumbleweed:latest"),
@@ -28,10 +47,13 @@ impl Config {
         .into_iter()
         .collect();
 
+        let pacman_container = if hardened { "blackarch" } else { "archlinux" };
+        let debian_container = if hardened { "kali" } else { "debian" };
+
         let container_map: HashMap<&str, &str> = [
-            ("pacman", "archlinux"),
-            ("apt", "debian"),
-            ("apt-get", "debian"),
+            ("pacman", pacman_container),
+            ("apt", debian_container),
+            ("apt-get", debian_container),
             ("dnf", "fedora"),
             ("yum", "fedora"),
             ("zypper", "opensuse"),
